@@ -1,6 +1,6 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+const BASE_URL = 'https://edubest-api.onrender.com/api/v1';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -8,7 +8,6 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ── Request: attach access token ──────────────────────────────────────────────
 api.interceptors.request.use((config) => {
   const state = JSON.parse(localStorage.getItem('edubest-auth') || '{}');
   const token = state?.state?.accessToken;
@@ -16,7 +15,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response: auto-refresh on 401 ────────────────────────────────────────────
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -40,27 +38,22 @@ api.interceptors.response.use(
       }
       original._retry = true;
       isRefreshing = true;
-
       try {
         const state = JSON.parse(localStorage.getItem('edubest-auth') || '{}');
         const refresh = state?.state?.refreshToken;
         if (!refresh) throw new Error('No refresh token');
-
         const { data } = await axios.post(`${BASE_URL}/auth/token/refresh/`, { refresh });
         const newAccess = data.access;
-
-        // Update store
         const parsed = JSON.parse(localStorage.getItem('edubest-auth'));
         parsed.state.accessToken = newAccess;
         localStorage.setItem('edubest-auth', JSON.stringify(parsed));
-
         processQueue(null, newAccess);
         original.headers.Authorization = `Bearer ${newAccess}`;
         return api(original);
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.removeItem('edubest-auth');
-        window.location.href = '/login';
+        window.location.href = '/edubest/login';
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
