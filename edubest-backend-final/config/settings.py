@@ -1,4 +1,4 @@
-﻿"""
+"""
 EDU BEST - Django Settings (Clean version for Render.com)
 """
 from datetime import timedelta

@@ -13,16 +13,8 @@ from django.core.cache import cache
 
 from apps.questions.models import Question, Subject
 from apps.tests.models import TestSession, TestSessionQuestion, TestTemplate, SectionResult
-from apps.gamification.service import GamificationService
 
 logger = logging.getLogger('apps.tests')
-
-# ORT Score scaling table (raw → scaled, 100-245 range)
-# Based on ЦООМО official conversion table
-ORT_SCALE_TABLE = {
-    # (raw_min, raw_max): scaled_score
-    # Simplified piecewise linear mapping
-}
 
 SCALE_BREAKPOINTS = [
     (0, 0, 100),
@@ -43,34 +35,23 @@ SCALE_BREAKPOINTS = [
 
 
 def raw_to_scaled_score(raw: int) -> int:
-    """Convert raw correct answers to ORT scaled score (100-245)."""
-    for low, high, scaled in SCALE_BREAKPOINTS:
+    for i, (low, high, scaled) in enumerate(SCALE_BREAKPOINTS):
         if low <= raw <= high:
-            if low == high:
-                return scaled
-            # Linear interpolation within segment
-            prev_low, prev_high, prev_scaled = SCALE_BREAKPOINTS[
-                SCALE_BREAKPOINTS.index((low, high, scaled)) - 1
-            ] if SCALE_BREAKPOINTS.index((low, high, scaled)) > 0 else (0, 0, 100)
-            ratio = (raw - low) / (high - low + 1)
-            return int(scaled + ratio * (scaled - prev_scaled))
+            return scaled
     return 245
 
 
 class TestGeneratorService:
-    """Generates balanced test sessions with proper difficulty distribution."""
-
     DIFFICULTY_DISTRIBUTION = {
-        1: 0.20,  # 20% easy
-        2: 0.25,  # 25% easy-medium
-        3: 0.25,  # 25% medium
-        4: 0.20,  # 20% medium-hard
-        5: 0.10,  # 10% hard
+        1: 0.20,
+        2: 0.25,
+        3: 0.25,
+        4: 0.20,
+        5: 0.10,
     }
 
     @classmethod
     def generate_session(cls, user, template: TestTemplate) -> TestSession:
-        """Create a new TestSession with all questions pre-assigned."""
         with transaction.atomic():
             session = TestSession.objects.create(
                 user=user,
@@ -96,16 +77,10 @@ class TestGeneratorService:
                 TestSessionQuestion.objects.bulk_create(bulk_sqq)
                 order += section.question_count
 
-            logger.info('Test session generated', extra={
-                'session_id': str(session.id),
-                'user_id': user.id,
-                'template_id': template.id,
-            })
             return session
 
     @classmethod
-    def _select_questions(cls, subject: Subject, count: int) -> list[Question]:
-        """Select questions with balanced difficulty distribution."""
+    def _select_questions(cls, subject: Subject, count: int):
         selected = []
         remaining = count
 
@@ -125,7 +100,6 @@ class TestGeneratorService:
                 selected.extend(qs)
                 remaining -= len(qs)
 
-        # Fill remaining from any difficulty
         if remaining > 0:
             used_ids = set(selected)
             fallback = list(
@@ -140,7 +114,6 @@ class TestGeneratorService:
 
 
 class TestSessionService:
-    """Manages the lifecycle of a test session."""
     CACHE_KEY = 'test_session:{session_id}:state'
 
     @classmethod
@@ -149,26 +122,20 @@ class TestSessionService:
         session.status = TestSession.Status.IN_PROGRESS
         session.started_at = now
         session.section_started_at = now
-        # Expire entire test after sum of all section times + 10 min buffer
         total_minutes = sum(s.time_minutes for s in session.template.sections.all())
         session.expires_at = now + timedelta(minutes=total_minutes + 10)
         session.save(update_fields=['status', 'started_at', 'section_started_at', 'expires_at'])
-
         cls._cache_session_state(session)
         return session
 
     @classmethod
     def submit_answer(cls, session: TestSession, question_id: int, answer_id: int) -> dict:
-        """Record user's answer. Returns immediate feedback (correct/incorrect)."""
         try:
             sqq = TestSessionQuestion.objects.select_related('question').get(
                 session=session, question_id=question_id
             )
         except TestSessionQuestion.DoesNotExist:
             raise ValueError('Вопрос не принадлежит этой сессии')
-
-        # Check section timer hasn't expired
-        cls._check_section_timer(session)
 
         from apps.questions.models import Answer
         correct_answer = sqq.question.answers.filter(is_correct=True).first()
@@ -188,7 +155,6 @@ class TestSessionService:
 
     @classmethod
     def advance_section(cls, session: TestSession) -> bool:
-        """Move to the next section. Returns False if test is complete."""
         sections = list(session.template.sections.all().order_by('order'))
         next_index = session.current_section_index + 1
 
@@ -204,7 +170,6 @@ class TestSessionService:
     @classmethod
     @transaction.atomic
     def complete_session(cls, session: TestSession) -> TestSession:
-        """Finalize session: calculate scores, award XP, save results."""
         if session.status == TestSession.Status.COMPLETED:
             return session
 
@@ -212,16 +177,11 @@ class TestSessionService:
         session.status = TestSession.Status.COMPLETED
         session.completed_at = now
 
-        # Calculate scores per section
         total_raw = 0
         for section_def in session.template.sections.all():
             sqqs = session.session_questions.filter(subject=section_def.subject)
             correct = sqqs.filter(is_correct=True).count()
             total = sqqs.count()
-            time_spent = 0
-            if session.section_started_at:
-                time_spent = int((now - session.section_started_at).total_seconds())
-
             section_scaled = raw_to_scaled_score(correct)
             SectionResult.objects.update_or_create(
                 session=session,
@@ -231,7 +191,7 @@ class TestSessionService:
                     'correct_answers': correct,
                     'raw_score': correct,
                     'scaled_score': section_scaled,
-                    'time_spent_seconds': time_spent,
+                    'time_spent_seconds': 0,
                 },
             )
             total_raw += correct
@@ -239,37 +199,18 @@ class TestSessionService:
         session.raw_score = total_raw
         session.scaled_score = raw_to_scaled_score(total_raw)
 
-        # Award XP
         from django.conf import settings
-        xp = total_raw * settings.XP_PER_TEST_CORRECT_ANSWER
+        xp = total_raw * getattr(settings, 'XP_PER_TEST_CORRECT_ANSWER', 2)
         session.xp_earned = xp
         session.user.add_xp(xp)
 
         session.save(update_fields=['status', 'completed_at', 'raw_score', 'scaled_score', 'xp_earned'])
 
-        # Async: check achievements, update leaderboard
         from apps.gamification.tasks import process_test_completion
         process_test_completion.delay(str(session.id))
 
         cache.delete(cls.CACHE_KEY.format(session_id=str(session.id)))
-        logger.info('Session completed', extra={
-            'session_id': str(session.id),
-            'user_id': session.user_id,
-            'scaled_score': session.scaled_score,
-        })
         return session
-
-    @classmethod
-    def _check_section_timer(cls, session: TestSession):
-        sections = list(session.template.sections.all().order_by('order'))
-        if session.current_section_index >= len(sections):
-            return
-        current_section = sections[session.current_section_index]
-        if session.section_started_at:
-            elapsed = (timezone.now() - session.section_started_at).total_seconds()
-            if elapsed > current_section.time_minutes * 60:
-                # Auto-advance section
-                cls.advance_section(session)
 
     @classmethod
     def _cache_session_state(cls, session: TestSession):
