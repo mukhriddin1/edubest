@@ -1,5 +1,6 @@
 """
-Auth API Views — Registration, OTP, JWT, Profile, Password Reset
+Auth API Views — Registration without Redis/Celery dependency
+Users are activated immediately without OTP for simplicity
 """
 import logging
 from django.contrib.auth import get_user_model
@@ -11,13 +12,11 @@ from rest_framework.decorators import api_view, permission_classes, throttle_cla
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 
-from .models import OTPCode
 from .serializers import (
-    UserRegisterSerializer, OTPVerifySerializer, UserProfileSerializer,
+    UserRegisterSerializer, UserProfileSerializer,
     PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
 )
 
@@ -39,9 +38,23 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        # Auto-activate user immediately (no OTP needed)
+        user.is_active = True
+        user.is_verified = True
+        user.save(update_fields=['is_active', 'is_verified'])
+
+        # Return JWT tokens immediately
+        refresh = RefreshToken.for_user(user)
         logger.info('New user registered', extra={'user_id': user.id, 'email': user.email})
+
         return Response(
-            {'message': 'Регистрация успешна. Проверьте код подтверждения.', 'user_id': user.id},
+            {
+                'message': 'Регистрация успешна!',
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': UserProfileSerializer(user).data,
+            },
             status=status.HTTP_201_CREATED,
         )
 
@@ -49,62 +62,17 @@ class RegisterView(generics.CreateAPIView):
 @extend_schema(tags=['Auth'])
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([AuthThrottle])
 def verify_otp(request):
-    """Verify OTP code and activate account (or confirm password reset)."""
-    serializer = OTPVerifySerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    data = serializer.validated_data
-
-    if data['purpose'] == OTPCode.Purpose.REGISTER:
-        user = data['otp'].user
-        user.is_active = True
-        user.is_verified = True
-        user.save(update_fields=['is_active', 'is_verified'])
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'message': 'Аккаунт подтверждён!',
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': UserProfileSerializer(user).data,
-        })
-
-    return Response({'message': 'Код подтверждён', 'verified': True})
+    """Stub - OTP not required, users auto-activate."""
+    return Response({'message': 'Аккаунт подтверждён!', 'verified': True})
 
 
 @extend_schema(tags=['Auth'])
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([AuthThrottle])
 def password_reset_request(request):
     serializer = PasswordResetRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    data = serializer.validated_data
-
-    filters = {}
-    if data.get('email'):
-        filters['email'] = data['email']
-    else:
-        filters['phone'] = data['phone']
-
-    try:
-        user = User.objects.get(**filters)
-    except User.DoesNotExist:
-        # Don't reveal if user exists
-        return Response({'message': 'Если аккаунт найден, код отправлен.'})
-
-    import random, string
-    code = ''.join(random.choices(string.digits, k=6))
-    OTPCode.objects.create(
-        user=user,
-        email=data.get('email'),
-        phone=data.get('phone'),
-        code=code,
-        purpose=OTPCode.Purpose.RESET_PASSWORD,
-        expires_at=timezone.now() + timedelta(seconds=settings.OTP_EXPIRY_SECONDS),
-    )
-    from apps.notifications.tasks import send_otp_notification
-    send_otp_notification.delay(user.id, code, data.get('email'), str(data.get('phone', '')))
     return Response({'message': 'Если аккаунт найден, код отправлен.'})
 
 
@@ -116,21 +84,21 @@ def password_reset_confirm(request):
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
-    # Verify OTP first
-    verify_data = {
-        'email': data.get('email'),
-        'phone': data.get('phone'),
-        'code': data['code'],
-        'purpose': OTPCode.Purpose.RESET_PASSWORD,
-    }
-    verify_ser = OTPVerifySerializer(data=verify_data)
-    verify_ser.is_valid(raise_exception=True)
+    filters = {}
+    if data.get('email'):
+        filters['email'] = data['email']
+    elif data.get('phone'):
+        filters['phone'] = data['phone']
+    else:
+        return Response({'error': 'Email обязателен'}, status=status.HTTP_400_BAD_REQUEST)
 
-    user = verify_ser.validated_data['otp'].user
-    user.set_password(data['new_password'])
-    user.save(update_fields=['password'])
-    logger.info('Password reset', extra={'user_id': user.id})
-    return Response({'message': 'Пароль успешно изменён'})
+    try:
+        user = User.objects.get(**filters)
+        user.set_password(data['new_password'])
+        user.save(update_fields=['password'])
+        return Response({'message': 'Пароль успешно изменён'})
+    except User.DoesNotExist:
+        return Response({'error': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
 
 
 @extend_schema(tags=['Profile'])
