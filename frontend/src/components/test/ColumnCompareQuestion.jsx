@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
-import { useTranslation } from 'react-i18next';
+
 
 /**
  * Сравнение колонок — специальный тип вопроса ОРТ.
@@ -8,8 +8,8 @@ import { useTranslation } from 'react-i18next';
  * Варианты ответа всегда 4: A>B, A<B, A=B, Нельзя определить
  */
 export default function ColumnCompareQuestion({ question, selectedAnswer, onSelect, disabled }) {
-  const { i18n } = useTranslation();
-  const lang = i18n.language === 'ky' ? 'ky' : 'ru';
+  
+  
 
   const getText = (ru, ky) => (lang === 'ky' && ky ? ky : ru);
 

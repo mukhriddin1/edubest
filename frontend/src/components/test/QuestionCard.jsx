@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
-import { useTranslation } from 'react-i18next';
+
 
 export default function QuestionCard({ question, questionNumber, totalQuestions, selectedAnswer, onSelect, disabled }) {
-  const { i18n } = useTranslation();
-  const lang = i18n.language === 'ky' ? 'ky' : 'ru';
+  
+  
 
   const text = lang === 'ky' && question.text_ky ? question.text_ky : question.text_ru;
   const answers = question.answers || [];
