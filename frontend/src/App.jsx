@@ -17,6 +17,7 @@ const TestHistoryPage   = lazy(() => import('./pages/tests/TestHistoryPage'))
 const ProfilePage       = lazy(() => import('./pages/profile/ProfilePage'))
 const AchievementsPage  = lazy(() => import('./pages/profile/AchievementsPage'))
 const LeaderboardPage   = lazy(() => import('./pages/gamification/LeaderboardPage'))
+const SettingsPage      = lazy(() => import('./pages/settings/SettingsPage'))
 const TeacherDashboard  = lazy(() => import('./pages/teacher/TeacherDashboard'))
 const TestBuilderPage   = lazy(() => import('./pages/teacher/TestBuilderPage'))
 const PricingPage       = lazy(() => import('./pages/payments/PricingPage'))
@@ -40,8 +41,9 @@ function GuestOnly({ children }) {
 
 function Loader() {
   return (
-    <div style={{ minHeight: '100vh', background: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 40, height: 40, border: '4px solid #f59e0b', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div style={{ minHeight: '100vh', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+      <div style={{ width: 48, height: 48, border: '4px solid #22c55e', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <p style={{ color: '#16a34a', fontWeight: 700, fontSize: 18 }}>EDU BEST</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -68,12 +70,19 @@ export default function App() {
             <Route path="/tests/history" element={<RequireAuth><TestHistoryPage /></RequireAuth>} />
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
             <Route path="/achievements" element={<RequireAuth><AchievementsPage /></RequireAuth>} />
+            <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
             <Route path="/teacher" element={<RequireAuth roles={['teacher','admin']}><TeacherDashboard /></RequireAuth>} />
             <Route path="/teacher/tests/new" element={<RequireAuth roles={['teacher','admin']}><TestBuilderPage /></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
-        <Toaster position="top-right" toastOptions={{ style: { background: '#1e293b', color: '#f8fafc', border: '1px solid #334155' } }} />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: { background: '#fff', color: '#111', border: '1px solid #bbf7d0', borderRadius: 12 },
+            success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          }}
+        />
       </BrowserRouter>
     </QueryClientProvider>
   )
