@@ -11,7 +11,6 @@ const useAuthStore = create(
       isLoading: false,
 
       setTokens: (access, refresh) => set({ accessToken: access, refreshToken: refresh }),
-
       setUser: (user) => set({ user }),
 
       login: async (credentials) => {
@@ -22,14 +21,18 @@ const useAuthStore = create(
             accessToken: data.access,
             refreshToken: data.refresh,
             user: data.user || null,
+            isLoading: false,
           });
-          // Fetch profile
-          await get().fetchProfile();
+          if (!data.user) {
+            try {
+              const profile = await api.get('/auth/profile/');
+              set({ user: profile.data });
+            } catch (_) {}
+          }
           return { success: true };
         } catch (error) {
-          return { success: false, error: error.response?.data };
-        } finally {
           set({ isLoading: false });
+          return { success: false, error: error.response?.data };
         }
       },
 
@@ -48,11 +51,7 @@ const useAuthStore = create(
         } catch (_) {}
       },
 
-      isAuthenticated: () => !!get().accessToken && !!get().user,
-
-      isStudent: () => get().user?.role === 'student',
-      isTeacher: () => get().user?.role === 'teacher',
-      isAdmin: () => get().user?.role === 'admin',
+      isAuthenticated: () => !!get().accessToken,
     }),
     {
       name: 'edubest-auth',
