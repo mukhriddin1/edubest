@@ -18,68 +18,92 @@ export default function LoginPage() {
       navigate('/dashboard');
     } else {
       const msg = result.error?.detail || result.error?.message || 'Неверный email или пароль';
-      setError(msg);
+      setError(typeof msg === 'string' ? msg : 'Неверный email или пароль');
     }
   };
 
+  const inputStyle = {
+    width: '100%',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    border: '2px solid #e2e8f0',
+    fontSize: '15px',
+    outline: 'none',
+    background: '#f8fafc',
+    color: '#0f172a',
+    transition: 'border-color 0.2s',
+    boxSizing: 'border-box',
+    display: 'block',
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center px-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link to="/" className="text-3xl font-black text-green-600">EDU BEST</Link>
-          <p className="text-gray-500 text-sm mt-1">Платформа подготовки к ОРТ 🇰🇬</p>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ width: '100%', maxWidth: 420 }}>
+
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <Link to="/" style={{ fontSize: 28, fontWeight: 900, color: '#16a34a', textDecoration: 'none' }}>EDU BEST 🇰🇬</Link>
+          <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>Платформа подготовки к ОРТ</p>
         </div>
 
-        <div className="bg-white border border-green-100 rounded-3xl p-8 shadow-xl shadow-green-100">
-          <h1 className="text-2xl font-black text-gray-900 mb-1">Добро пожаловать!</h1>
-          <p className="text-gray-500 text-sm mb-6">Войди в свой аккаунт</p>
+        <div style={{ background: '#fff', border: '1px solid #bbf7d0', borderRadius: 24, padding: 32, boxShadow: '0 20px 60px rgba(34,197,94,0.1)' }}>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', marginBottom: 4 }}>Добро пожаловать!</h1>
+          <p style={{ color: '#64748b', fontSize: 14, marginBottom: 24 }}>Войди в свой аккаунт</p>
 
           {error && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-5 text-sm"
-            >
-              <span className="text-lg">⚠️</span>
-              <span>{error}</span>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '12px 16px', borderRadius: 12, marginBottom: 20, fontSize: 14 }}>
+              ⚠️ {error}
             </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-gray-700 text-sm font-semibold mb-1.5 block">Email</label>
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Email</label>
               <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className="w-full bg-gray-50 border-2 border-gray-200 focus:border-green-400 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:bg-white transition text-sm"
-                placeholder="your@email.com" required
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                required
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#22c55e'}
+                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
               />
             </div>
-            <div>
-              <label className="text-gray-700 text-sm font-semibold mb-1.5 block">Пароль</label>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Пароль</label>
               <input
-                type="password" value={password} onChange={e => setPassword(e.target.value)}
-                className="w-full bg-gray-50 border-2 border-gray-200 focus:border-green-400 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:bg-white transition text-sm"
-                placeholder="••••••••" required
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#22c55e'}
+                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
               />
             </div>
+
             <button
-              type="submit" disabled={isLoading}
-              className="w-full bg-green-500 hover:bg-green-400 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-50 shadow-lg shadow-green-200 text-sm"
+              type="submit"
+              disabled={isLoading}
+              style={{
+                width: '100%', padding: '14px', background: isLoading ? '#86efac' : '#22c55e',
+                color: '#fff', fontWeight: 800, fontSize: 15, border: 'none', borderRadius: 14,
+                cursor: isLoading ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
+                boxShadow: '0 4px 20px rgba(34,197,94,0.3)',
+              }}
             >
               {isLoading ? '⏳ Загрузка...' : 'Войти в аккаунт →'}
             </button>
           </form>
 
-          <div className="mt-5 space-y-2 text-center">
-            <Link to="/forgot-password" className="text-green-600 text-sm hover:underline block">Забыл пароль?</Link>
-            <p className="text-gray-500 text-sm">
+          <div style={{ marginTop: 20, textAlign: 'center' }}>
+            <Link to="/forgot-password" style={{ color: '#16a34a', fontSize: 14, display: 'block', marginBottom: 8 }}>Забыл пароль?</Link>
+            <p style={{ color: '#64748b', fontSize: 14 }}>
               Нет аккаунта?{' '}
-              <Link to="/register" className="text-green-600 font-semibold hover:underline">Зарегистрироваться</Link>
+              <Link to="/register" style={{ color: '#16a34a', fontWeight: 700 }}>Зарегистрироваться</Link>
             </p>
           </div>
         </div>
