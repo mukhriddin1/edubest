@@ -11,13 +11,17 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const { setTokens, setUser, fetchProfile } = useAuthStore();
 
+  const update = (field, val) => {
+    setForm(f => ({ ...f, [field]: val }));
+    if (errors[field]) setErrors(e => ({ ...e, [field]: '' }));
+  };
+
   const validate = () => {
     const errs = {};
     if (!form.first_name.trim()) errs.first_name = 'Введи имя';
     if (!form.last_name.trim()) errs.last_name = 'Введи фамилию';
     if (!form.email.includes('@')) errs.email = 'Некорректный email';
     if (form.password.length < 8) errs.password = 'Минимум 8 символов';
-    if (!/[A-Za-z]/.test(form.password)) errs.password = 'Пароль должен содержать буквы';
     if (form.password !== form.confirm_password) errs.confirm_password = 'Пароли не совпадают';
     return errs;
   };
@@ -52,92 +56,102 @@ export default function RegisterPage() {
     }
   };
 
-  const update = (field, val) => {
-    setForm(f => ({ ...f, [field]: val }));
-    if (errors[field]) setErrors(e => ({ ...e, [field]: '' }));
-  };
+  const inputStyle = (hasError) => ({
+    width: '100%',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    border: `2px solid ${hasError ? '#fca5a5' : '#e2e8f0'}`,
+    fontSize: '15px',
+    outline: 'none',
+    background: hasError ? '#fef2f2' : '#f8fafc',
+    color: '#0f172a',
+    transition: 'border-color 0.2s',
+    boxSizing: 'border-box',
+    display: 'block',
+  });
 
-  const InputField = ({ label, field, type = 'text', placeholder }) => (
-    <div>
-      <label className="text-gray-700 text-sm font-semibold mb-1.5 block">{label}</label>
+  const Field = ({ label, field, type = 'text', placeholder }) => (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 5 }}>{label}</label>
       <input
-        type={type} value={form[field]} onChange={e => update(field, e.target.value)}
-        className={`w-full bg-gray-50 border-2 ${errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-green-400'} rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:bg-white transition text-sm`}
+        type={type}
+        value={form[field]}
+        onChange={e => update(field, e.target.value)}
         placeholder={placeholder}
+        style={inputStyle(!!errors[field])}
+        onFocus={e => { e.target.style.borderColor = '#22c55e'; e.target.style.background = '#fff'; }}
+        onBlur={e => { e.target.style.borderColor = errors[field] ? '#fca5a5' : '#e2e8f0'; e.target.style.background = errors[field] ? '#fef2f2' : '#f8fafc'; }}
       />
       {errors[field] && (
-        <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-          <span>⚠️</span> {errors[field]}
-        </p>
+        <p style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>⚠️ {errors[field]}</p>
       )}
     </div>
   );
 
+  const passChecks = [
+    { ok: form.password.length >= 8, text: 'Минимум 8 символов' },
+    { ok: /[A-Za-z]/.test(form.password), text: 'Содержит буквы' },
+    { ok: /[0-9]/.test(form.password), text: 'Содержит цифры' },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center px-4 py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-8">
-          <Link to="/" className="text-3xl font-black text-green-600">EDU BEST</Link>
-          <p className="text-gray-500 text-sm mt-1">Платформа подготовки к ОРТ 🇰🇬</p>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ width: '100%', maxWidth: 440 }}>
+
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <Link to="/" style={{ fontSize: 28, fontWeight: 900, color: '#16a34a', textDecoration: 'none' }}>EDU BEST 🇰🇬</Link>
+          <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>Платформа подготовки к ОРТ</p>
         </div>
 
-        <div className="bg-white border border-green-100 rounded-3xl p-8 shadow-xl shadow-green-100">
-          <h1 className="text-2xl font-black text-gray-900 mb-1">Создай аккаунт</h1>
-          <p className="text-gray-500 text-sm mb-6">Регистрация бесплатная — займёт 1 минуту</p>
+        <div style={{ background: '#fff', border: '1px solid #bbf7d0', borderRadius: 24, padding: 32, boxShadow: '0 20px 60px rgba(34,197,94,0.1)' }}>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', marginBottom: 4 }}>Создай аккаунт</h1>
+          <p style={{ color: '#64748b', fontSize: 14, marginBottom: 24 }}>Регистрация бесплатная — 1 минута</p>
 
           {errors.general && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-5 text-sm"
-            >
-              <span>⚠️</span> {errors.general}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '12px 16px', borderRadius: 12, marginBottom: 16, fontSize: 14 }}>
+              ⚠️ {errors.general}
             </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <InputField label="Имя" field="first_name" placeholder="Мухриддин" />
-              <InputField label="Фамилия" field="last_name" placeholder="Иванов" />
+          <form onSubmit={handleSubmit}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 0 }}>
+              <Field label="Имя" field="first_name" placeholder="Мухриддин" />
+              <Field label="Фамилия" field="last_name" placeholder="Иванов" />
             </div>
-            <InputField label="Email" field="email" type="email" placeholder="your@email.com" />
-            <InputField label="Пароль" field="password" type="password" placeholder="Минимум 8 символов" />
-            <InputField label="Повтори пароль" field="confirm_password" type="password" placeholder="••••••••" />
+            <Field label="Email" field="email" type="email" placeholder="your@email.com" />
+            <Field label="Пароль" field="password" type="password" placeholder="Минимум 8 символов" />
 
             {/* Password strength */}
             {form.password && (
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500">Требования к паролю:</p>
-                {[
-                  { check: form.password.length >= 8, text: 'Минимум 8 символов' },
-                  { check: /[A-Za-z]/.test(form.password), text: 'Содержит буквы' },
-                  { check: /[0-9]/.test(form.password), text: 'Содержит цифры' },
-                ].map(r => (
-                  <div key={r.text} className="flex items-center gap-2 text-xs">
-                    <span className={r.check ? 'text-green-500' : 'text-gray-300'}>
-                      {r.check ? '✓' : '○'}
-                    </span>
-                    <span className={r.check ? 'text-green-600' : 'text-gray-400'}>{r.text}</span>
-                  </div>
+              <div style={{ marginBottom: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {passChecks.map(c => (
+                  <span key={c.text} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: c.ok ? '#dcfce7' : '#f1f5f9', color: c.ok ? '#16a34a' : '#94a3b8', fontWeight: 600 }}>
+                    {c.ok ? '✓' : '○'} {c.text}
+                  </span>
                 ))}
               </div>
             )}
 
+            <Field label="Повтори пароль" field="confirm_password" type="password" placeholder="••••••••" />
+
             <button
-              type="submit" disabled={loading}
-              className="w-full bg-green-500 hover:bg-green-400 text-white font-bold py-3.5 rounded-xl transition disabled:opacity-50 shadow-lg shadow-green-200 text-sm mt-2"
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%', padding: '14px', background: loading ? '#86efac' : '#22c55e',
+                color: '#fff', fontWeight: 800, fontSize: 15, border: 'none', borderRadius: 14,
+                cursor: loading ? 'not-allowed' : 'pointer', marginTop: 4,
+                boxShadow: '0 4px 20px rgba(34,197,94,0.3)',
+              }}
             >
               {loading ? '⏳ Создаём аккаунт...' : 'Создать аккаунт →'}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-gray-500 text-sm">
+          <p style={{ marginTop: 20, textAlign: 'center', color: '#64748b', fontSize: 14 }}>
             Уже есть аккаунт?{' '}
-            <Link to="/login" className="text-green-600 font-semibold hover:underline">Войти</Link>
+            <Link to="/login" style={{ color: '#16a34a', fontWeight: 700 }}>Войти</Link>
           </p>
         </div>
       </motion.div>
